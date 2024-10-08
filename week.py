@@ -10,21 +10,26 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from dotenv import load_dotenv
+import os
 
-# Настройки
-TELEGRAM_TOKEN = "7015334956:AAEjtyg7x4qzOotRxOBED5_CxGY9Fzb0Xnc"
-GOOGLE_SHEET_ID = "1U3DJ-I6WOAcwW-J-j2p0bpH34c0vD-mjK6uresaj9Zg"
-CHAT_ID = -1002045032457  # Используем только один фиксированный ID чата
+# Загрузка переменных окружения
+load_dotenv()
+
+# Настройки из .env
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
+CHAT_ID = int(os.getenv("CHAT_ID"))
+GOOGLE_SHEET_CREDENTIALS_PATH = os.getenv("GOOGLE_SHEET_CREDENTIALS_PATH")
+GOOGLE_SHEET_SCOPES = os.getenv("GOOGLE_SHEET_SCOPES").split(",")
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 # Настройка Google Sheets
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
-    "https://www.googleapis.com/auth/drive",
-]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPES)
+creds = ServiceAccountCredentials.from_json_keyfile_name(
+    GOOGLE_SHEET_CREDENTIALS_PATH, GOOGLE_SHEET_SCOPES
+)
 client = gspread.authorize(creds)
 sheet = client.open_by_key(GOOGLE_SHEET_ID).worksheet("ДР")
 
@@ -142,20 +147,15 @@ async def show_all_birthdays(message: types.Message):
 
 # Основная функция запуска бота и планировщика задач
 async def main():
-    # Устанавливаем маршрутизатор
     dp.include_router(router)
 
-    # Настройка планировщика
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        daily_check, CronTrigger(hour=10, minute=00)
-    )  # Ежедневное оповещение о днях рождения в 9:00
+    scheduler.add_job(daily_check, CronTrigger(hour=10, minute=00))
     scheduler.add_job(
         weekly_meeting_reminder, CronTrigger(day_of_week="mon", hour=18, minute=25)
-    )  # Еженедельное оповещение о встрече в понедельник в 18:30
+    )
     scheduler.start()
 
-    # Запуск polling с указанием экземпляра бота
     await dp.start_polling(bot)
 
 
